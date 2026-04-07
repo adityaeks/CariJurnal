@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JurnalSeng - Scopus Search & Jurnal Translate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card-hover { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card-hover:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col items-center justify-center p-6">
+
+    <div class="text-center mb-12">
+        <div class="inline-block bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full mb-4 tracking-widest uppercase">Berbasis Scopus API & Gemini AI</div>
+        <h1 class="text-5xl font-extrabold text-slate-800 mb-3 tracking-tight">Jurnal<span class="text-blue-600">Seng</span></h1>
+        <p class="text-slate-500 text-lg max-w-md mx-auto">Platform pencarian dan penerjemahan jurnal ilmiah berbasis AI. Pilih fitur yang ingin Anda gunakan.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
+        
+        <!-- Card: Scopus Search -->
+        <a href="/search" class="card-hover bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-start shadow-sm group cursor-pointer no-underline">
+            <div class="bg-blue-100 rounded-xl p-4 mb-5 group-hover:bg-blue-600 transition-colors duration-250">
+                <svg class="h-8 w-8 text-blue-600 group-hover:text-white transition-colors duration-250" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition-colors">Cari Jurnal Scopus</h2>
+            <p class="text-slate-500 text-sm leading-relaxed mb-6">Temukan jutaan jurnal ilmiah dari database Scopus dengan filter Author, Tahun, ISSN, Afiliasi, dan banyak lagi. Dilengkapi filter Open Access.</p>
+            <div class="mt-auto flex items-center text-blue-600 font-semibold text-sm">
+                Buka Pencarian
+                <svg class="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </div>
+        </a>
+
+        <!-- Card: Jurnal Translate (Coming Soon) -->
+        <div onclick="showComingSoon()" class="card-hover bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-start shadow-sm group cursor-pointer relative overflow-hidden">
+            <!-- Badge Coming Soon -->
+            <div class="absolute top-4 right-4 bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full border border-amber-200">🚧 Segera Hadir</div>
+            <div class="bg-emerald-100 rounded-xl p-4 mb-5 group-hover:bg-emerald-500 transition-colors duration-250">
+                <svg class="h-8 w-8 text-emerald-600 group-hover:text-white transition-colors duration-250" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 group-hover:text-emerald-600 transition-colors">Terjemahkan Jurnal</h2>
+            <p class="text-slate-500 text-sm leading-relaxed mb-6">Upload file PDF jurnal ilmiah berbahasa Inggris dan terjemahkan ke Bahasa Indonesia secara otomatis menggunakan AI. Hasil bisa dipreview dan didownload.</p>
+            <div class="mt-auto flex items-center text-emerald-500 font-semibold text-sm">
+                Segera Tersedia
+                <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+        </div>
+
+    </div>
+
+    <p class="mt-10 text-slate-400 text-sm">
+        JurnalSeng &copy; 2026 &mdash; Powered by Scopus API & Google Gemini
+    </p>
+
+    <!-- Modal Coming Soon -->
+    <div id="comingSoonModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-bounce-once">
+            <div class="text-5xl mb-4">🚧</div>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Fitur Dalam Pengembangan</h3>
+            <p class="text-slate-500 text-sm mb-1">Fitur <strong>Terjemahan Jurnal PDF</strong> sedang dalam proses pengembangan.</p>
+            <p class="text-slate-400 text-xs mb-6">Kami sedang memilih provider AI terbaik agar terjemahan lebih cepat dan akurat.</p>
+            <button onclick="hideComingSoon()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium text-sm transition-colors w-full">
+                Oke, Mengerti
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function showComingSoon() {
+            document.getElementById('comingSoonModal').classList.remove('hidden');
+        }
+        function hideComingSoon() {
+            document.getElementById('comingSoonModal').classList.add('hidden');
+        }
+
+    </script>
+
+</body>
+</html>

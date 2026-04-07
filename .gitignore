@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment variables (JANGAN pernah commit file ini!)
+.env
+.env.local
+.env.production
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build output (jika ada)
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
