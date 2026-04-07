@@ -21,6 +21,34 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentStart = 0;
     let currentQs = null;
 
+    // Theme Toggle Logic
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const themeToggleDarkIcon = document.getElementById('themeToggleDarkIcon');
+    const themeToggleLightIcon = document.getElementById('themeToggleLightIcon');
+
+    function updateThemeIcons() {
+        if (document.documentElement.classList.contains('dark')) {
+            themeToggleLightIcon.classList.remove('hidden');
+            themeToggleDarkIcon.classList.add('hidden');
+        } else {
+            themeToggleLightIcon.classList.add('hidden');
+            themeToggleDarkIcon.classList.remove('hidden');
+        }
+    }
+    
+    if (themeToggleBtn) {
+        updateThemeIcons();
+        themeToggleBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('color-theme', 'dark');
+            } else {
+                localStorage.setItem('color-theme', 'light');
+            }
+            updateThemeIcons();
+        });
+    }
+
     // Advanced Search Accordion Logic
     const toggleAdvancedBtn = document.getElementById('toggleAdvancedBtn');
     const advancedSearchArea = document.getElementById('advancedSearchArea');
@@ -125,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             data.results.forEach(item => {
                 const card = document.createElement('div');
-                card.className = 'bg-white rounded-lg shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-blue-200 transition-all group flex flex-col sm:flex-row justify-between sm:items-start gap-4';
+                card.className = 'bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-5 hover:shadow-md hover:border-blue-200 dark:hover:border-slate-500 transition-all group flex flex-col sm:flex-row justify-between sm:items-start gap-4';
                 
                 const safeTitle = escapeHTML(item.title) || 'Tanpa Judul';
                 const safeAuthor = escapeHTML(item.author) || 'Author tidak diketahui';
@@ -135,28 +163,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 const safeDoi = escapeHTML(item.doi);
 
                 const doiHtml = safeDoi 
-                    ? `<p class="text-slate-600 text-sm mb-3">
-                           <span class="font-medium">🔗 DOI:</span> <a href="https://doi.org/${safeDoi}" target="_blank" class="text-blue-600 hover:text-blue-700 hover:underline transition-colors">${safeDoi}</a>
+                    ? `<p class="text-slate-600 dark:text-slate-400 text-sm mb-3">
+                           <span class="font-medium text-slate-700 dark:text-slate-300">🔗 DOI:</span> <a href="https://doi.org/${safeDoi}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors">${safeDoi}</a>
                        </p>`
                     : '';
 
                 card.innerHTML = `
                     <div class="flex-grow">
-                        <h3 class="text-lg font-semibold text-slate-800 leading-snug mb-2 group-hover:text-blue-600 transition-colors">${safeTitle}</h3>
-                        <p class="text-slate-600 text-sm mb-1">
-                            <span class="font-medium">👨‍🔬 Author:</span> ${safeAuthor}
+                        <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${safeTitle}</h3>
+                        <p class="text-slate-600 dark:text-slate-400 text-sm mb-1">
+                            <span class="font-medium text-slate-700 dark:text-slate-300">👨‍🔬 Author:</span> ${safeAuthor}
                         </p>
-                        <p class="text-slate-600 text-sm mb-2">
-                            <span class="font-medium">📝 Publikasi:</span> <span class="italic font-medium">${safeSource}</span> (${year})
+                        <p class="text-slate-600 dark:text-slate-400 text-sm mb-2">
+                            <span class="font-medium text-slate-700 dark:text-slate-300">📝 Publikasi:</span> <span class="italic font-medium">${safeSource}</span> (${year})
                         </p>
                         ${doiHtml}
-                        <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200 mt-1">
+                        <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 mt-1">
                             ⭐ Sitasi: ${cited}
                         </div>
                     </div>
                     <div class="flex-shrink-0 pt-1">
-                        <a href="${item.scopusLink}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors group-hover:border-blue-300">
-                            <svg class="mr-2 h-4 w-4 text-slate-500 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <a href="${item.scopusLink}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 shadow-sm text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors group-hover:border-blue-300 dark:group-hover:border-blue-400">
+                            <svg class="mr-2 h-4 w-4 text-slate-500 dark:text-slate-400 group-hover:text-blue-500 dark:group-hover:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
                             Buka di Scopus

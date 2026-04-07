@@ -6,22 +6,49 @@
     <title>Pencarian Jurnal Scopus</title>
     <!-- Menerapkan Tailwind CSS sesuai instruksi -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+        
+        // Cek dan terapkan preferensi tema pengguna sebelumnya
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
+<body class="bg-slate-50 dark:bg-slate-900 min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200">
     <div class="max-w-4xl mx-auto p-6">
-        <header class="text-center py-8">
-            <h1 class="text-4xl font-bold text-blue-700 mb-2">Scopus Search</h1>
-            <p class="text-slate-500">Pencarian Jurnal Ilmiah Berbasis Scopus</p>
+        
+        <!-- Toggle Tema (Dark/Light) -->
+        <div class="flex justify-end pb-2">
+            <button id="themeToggleBtn" aria-label="Toggle Dark Mode" class="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <!-- Ikon Matahari (ditampilkan saat dark mode) -->
+                <svg id="themeToggleLightIcon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
+                </svg>
+                <!-- Ikon Bulan (ditampilkan saat light mode) -->
+                <svg id="themeToggleDarkIcon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <header class="text-center pb-6 mt-2">
+            <h1 class="text-4xl sm:text-5xl font-bold text-blue-700 dark:text-blue-500 mb-2">Scopus Search</h1>
+            <p class="text-slate-500 dark:text-slate-400">Pencarian Jurnal Ilmiah Berbasis Scopus</p>
         </header>
 
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-8 transition-colors">
             <form id="searchForm" class="flex flex-col gap-5">
                 
-                <h3 class="text-lg font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-2">Pencarian Jurnal Scopus</h3>
+                <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">Pencarian Jurnal Scopus</h3>
 
                 <!-- BASIC SEARCH AREA -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-6 items-center">
@@ -29,26 +56,26 @@
                     <!-- General Search -->
                     <div class="md:col-span-12 relative rounded-md shadow-sm">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="h-5 w-5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
-                        <input type="text" id="generalSearch" placeholder="Kata kunci pencarian bebas (mencakup judul, abstrak, dan kata kunci)" class="w-full pl-10 pr-3 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base font-medium text-slate-800 bg-slate-50 focus:bg-white">
+                        <input type="text" id="generalSearch" placeholder="Kata kunci pencarian bebas (mencakup judul, abstrak, dan kata kunci)" class="w-full pl-10 pr-3 py-3 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-800 placeholder-slate-400 dark:placeholder-slate-400">
                     </div>
 
                     <!-- Years (From Base UI) -->
-                    <label class="md:col-span-2 text-sm font-medium text-slate-700">Rentang Tahun:</label>
+                    <label class="md:col-span-2 text-sm font-medium text-slate-700 dark:text-slate-300">Rentang Tahun:</label>
                     <div class="md:col-span-4 flex items-center gap-2">
-                        <input type="number" id="yearStart" placeholder="Dari (YYYY)" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        <input type="number" id="yearStart" placeholder="Dari (YYYY)" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm placeholder-slate-400">
                         <span class="text-slate-400">-</span>
-                        <input type="number" id="yearEnd" placeholder="Hingga (YYYY)" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        <input type="number" id="yearEnd" placeholder="Hingga (YYYY)" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm placeholder-slate-400">
                     </div>
 
                     <!-- Display Options -->
                     <div class="md:col-span-6 flex justify-end md:justify-start">
-                        <label class="inline-flex items-center cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-100 transition duration-150">
-                            <input type="checkbox" id="openAccess" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
-                            <span class="ml-2 text-sm font-medium text-slate-700">Display only Open Access journals</span>
+                        <label class="inline-flex items-center cursor-pointer bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition duration-150">
+                            <input type="checkbox" id="openAccess" class="rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 w-4 h-4 cursor-pointer">
+                            <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">Display only Open Access journals</span>
                         </label>
                     </div>
 
@@ -56,69 +83,69 @@
 
                 <!-- ADVANCED SEARCH TOGGLE -->
                 <div class="pt-2">
-                    <button type="button" id="toggleAdvancedBtn" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center transition-colors focus:outline-none">
-                        <svg class="w-4 h-4 mr-1 transform transition-transform duration-200" id="toggleAdvancedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button type="button" id="toggleAdvancedBtn" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center text-left transition-colors focus:outline-none">
+                        <svg class="w-4 h-4 mr-1.5 flex-shrink-0 transform transition-transform duration-200" id="toggleAdvancedIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
-                        Advanced Search (Pencarian Lebih Detail)
+                        <span>Advanced Search (Pencarian Lebih Detail)</span>
                     </button>
                 </div>
 
                 <!-- ADVANCED SEARCH CARD (HIDDEN BY DEFAULT) -->
-                <div id="advancedSearchArea" class="hidden bg-blue-50/50 border border-blue-100 rounded-lg p-5">
+                <div id="advancedSearchArea" class="hidden bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-lg p-5">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-6 items-center">
                         
                         <!-- Authors -->
-                        <label class="md:col-span-3 text-sm font-medium text-slate-700 md:text-right">Authors:</label>
+                        <label class="md:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300 md:text-right">Authors:</label>
                         <div class="md:col-span-9">
-                            <input type="text" id="authors" placeholder="Contoh nama penulis: Smith J." class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+                            <input type="text" id="authors" placeholder="Contoh nama penulis: Smith J." class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm placeholder-slate-400">
                         </div>
 
                         <!-- Affiliations -->
-                        <label class="md:col-span-3 text-sm font-medium text-slate-700 md:text-right">Affiliations:</label>
+                        <label class="md:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300 md:text-right">Affiliations:</label>
                         <div class="md:col-span-9">
-                            <input type="text" id="affiliations" placeholder="Nama Universitas atau Institusi" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+                            <input type="text" id="affiliations" placeholder="Nama Universitas atau Institusi" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm placeholder-slate-400">
                         </div>
 
                         <!-- Publication name -->
-                        <label class="md:col-span-3 text-sm font-medium text-slate-700 md:text-right">Publication name:</label>
+                        <label class="md:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300 md:text-right">Publication name:</label>
                         <div class="md:col-span-5">
-                            <input type="text" id="pubName" placeholder="Nama Jurnal atau Majalah Spesifik" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+                            <input type="text" id="pubName" placeholder="Nama Jurnal atau Majalah Spesifik" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm placeholder-slate-400">
                         </div>
                         
                         <!-- ISSN -->
-                        <label class="md:col-span-1 text-sm font-medium text-slate-700 md:text-right">ISSN:</label>
+                        <label class="md:col-span-1 text-sm font-medium text-slate-700 dark:text-slate-300 md:text-right">ISSN:</label>
                         <div class="md:col-span-3">
-                            <input type="text" id="issn" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                            <input type="text" id="issn" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                         </div>
 
                         <!-- Title words -->
-                        <label class="md:col-span-3 text-sm font-medium text-slate-700 md:text-right">Title words:</label>
+                        <label class="md:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300 md:text-right">Title words:</label>
                         <div class="md:col-span-9">
-                            <input type="text" id="titleWords" placeholder="Hanya mencari pada kalimat judul Jurnal" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+                            <input type="text" id="titleWords" placeholder="Hanya mencari pada kalimat judul Jurnal" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm placeholder-slate-400">
                         </div>
 
                         <!-- Keywords -->
-                        <label class="md:col-span-3 text-sm font-medium text-slate-700 md:text-right">Author Keywords:</label>
+                        <label class="md:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300 md:text-right">Author Keywords:</label>
                         <div class="md:col-span-9">
-                            <input type="text" id="keywords" placeholder="Hanya mencari metadata kata kunci yang didaftarkan penulis" class="w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm">
+                            <input type="text" id="keywords" placeholder="Hanya mencari metadata kata kunci yang didaftarkan penulis" class="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm placeholder-slate-400">
                         </div>
 
                     </div>
                 </div>
 
                 <!-- Footer / Controls -->
-                <div class="flex flex-col sm:flex-row justify-between items-center mt-2 pt-4 border-t border-slate-200 gap-4">
+                <div class="flex flex-col sm:flex-row justify-between items-center mt-2 pt-4 border-t border-slate-200 dark:border-slate-700 gap-4">
                     <div class="w-full sm:w-auto flex items-center gap-3">
-                        <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Urutkan:</label>
-                        <select id="sortInput" class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                        <label class="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">Urutkan:</label>
+                        <select id="sortInput" class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-sm">
                             <option value="relevancy">Relevansi (Paling Sesuai)</option>
                             <option value="year">Tahun Publikasi Terbaru</option>
                             <option value="citation">Jumlah Sitasi Terbanyak</option>
                         </select>
                     </div>
 
-                    <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg font-bold transition-colors shadow-sm text-sm flex items-center justify-center">
+                    <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-8 py-2.5 rounded-lg font-bold transition-colors shadow-sm text-sm flex items-center justify-center">
                         <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
@@ -130,38 +157,38 @@
 
         <!-- Initial/Empty State -->
         <div id="emptyState" class="text-center py-12">
-            <svg class="mx-auto h-24 w-24 text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="mx-auto h-24 w-24 text-slate-300 dark:text-slate-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
-            <p class="text-slate-500 text-lg">Gunakan kotak pencarian di atas untuk mulai mencari jutaan publikasi dari Scopus.</p>
+            <p class="text-slate-500 dark:text-slate-400 text-lg">Gunakan kotak pencarian di atas untuk mulai mencari jutaan publikasi dari Scopus.</p>
         </div>
 
         <!-- Error State -->
-        <div id="errorState" class="hidden bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded-r-lg">
+        <div id="errorState" class="hidden bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 dark:border-red-600 p-4 mb-8 rounded-r-lg">
             <div class="flex">
                 <div class="flex-shrink-0">
-                    <svg class="h-6 w-6 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                    <svg class="h-6 w-6 text-red-500 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800">Terjadi Kesalahan</h3>
-                    <p id="errorMessage" class="text-sm text-red-700 mt-1"></p>
+                    <h3 class="text-sm font-medium text-red-800 dark:text-red-300">Terjadi Kesalahan</h3>
+                    <p id="errorMessage" class="text-sm text-red-700 dark:text-red-400 mt-1"></p>
                 </div>
             </div>
         </div>
 
         <!-- Loading spinner -->
         <div id="loadingState" class="hidden flex flex-col items-center justify-center py-12">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p class="text-slate-500 animate-pulse font-medium">Menghubungi server Scopus...</p>
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mb-4"></div>
+            <p class="text-slate-500 dark:text-slate-400 animate-pulse font-medium">Menghubungi server Scopus...</p>
         </div>
 
         <!-- Data Container -->
         <div id="resultsContainer" class="hidden">
-            <div class="mb-5 text-slate-600 text-sm bg-blue-50/70 border border-blue-100 px-4 py-3 rounded-lg border-l-4 border-l-blue-500 shadow-sm flex items-center justify-between">
+            <div class="mb-5 text-slate-600 dark:text-blue-100 text-sm bg-blue-50/70 dark:bg-blue-900/50 border border-blue-100 dark:border-blue-800 px-4 py-3 rounded-lg border-l-4 border-l-blue-500 dark:border-l-blue-400 shadow-sm flex items-center justify-between">
                 <div>
-                    Menemukan <span id="totalResults" class="font-bold text-blue-800 text-base">0</span> publikasi ilmiah dari kriteria pencarian Anda.
+                    Menemukan <span id="totalResults" class="font-bold text-blue-800 dark:text-blue-200 text-base">0</span> publikasi ilmiah dari kriteria pencarian Anda.
                 </div>
             </div>
             <div id="resultsList" class="space-y-4">
@@ -170,14 +197,14 @@
             
             <!-- Pagination Controls -->
             <div id="paginationContainer" class="mt-8 mb-2 text-center hidden">
-                <button id="loadMoreBtn" type="button" class="bg-white hover:bg-slate-50 text-blue-600 border border-slate-300 font-medium py-2.5 px-8 rounded-lg shadow-sm transition-colors flex items-center justify-center mx-auto mb-3">
+                <button id="loadMoreBtn" type="button" class="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 font-medium py-2.5 px-8 rounded-lg shadow-sm transition-colors flex items-center justify-center mx-auto mb-3">
                     <span id="loadMoreText">Tampilkan Selanjutnya (Next Page)</span>
-                    <svg id="loadMoreSpinner" class="hidden animate-spin ml-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg id="loadMoreSpinner" class="hidden animate-spin ml-3 h-5 w-5 text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </button>
-                <p id="paginationInfo" class="text-sm text-slate-500"></p>
+                <p id="paginationInfo" class="text-sm text-slate-500 dark:text-slate-400"></p>
             </div>
         </div>
     </div>
