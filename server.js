@@ -4,7 +4,7 @@ const path = require('path');
 const multer = require('multer');
 require('dotenv').config();
 
-const { searchScopus } = require('./backend/scopus');
+const { searchScopus, getScopusInsight } = require('./backend/scopus');
 const { translateJournal } = require('./backend/translate');
 
 const app = express();
@@ -31,6 +31,7 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 // ---- API Routes ----
 // Scopus Search API
 app.get('/api/search', searchScopus);
+app.get('/api/insight', getScopusInsight);
 
 // PDF Translation API
 app.post('/api/translate', upload.single('pdf'), translateJournal);

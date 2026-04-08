@@ -104,6 +104,130 @@ async function searchScopus(req, res) {
     }
 }
 
+async function getScopusInsight(req, res) {
+    try {
+        const { q, sort = 'relevancy', start = 0, authors, yearStart, yearEnd, affiliations, pubName, issn, titleWords, keywords } = req.query;
+        
+        const queryParts = [];
+        if (q) queryParts.push(`TITLE-ABS-KEY(${q})`);
+        if (titleWords) queryParts.push(`TITLE(${titleWords})`);
+        if (authors) queryParts.push(`AUTH(${authors})`);
+        if (affiliations) queryParts.push(`AFFIL(${affiliations})`);
+        if (pubName) queryParts.push(`SRCTITLE(${pubName})`);
+        if (issn) queryParts.push(`ISSN(${issn})`);
+        if (keywords) queryParts.push(`KEY(${keywords})`);
+
+        if (yearStart && yearEnd) {
+            queryParts.push(`PUBYEAR > ${parseInt(yearStart)-1} AND PUBYEAR < ${parseInt(yearEnd)+1}`);
+        } else if (yearStart) {
+            queryParts.push(`PUBYEAR > ${parseInt(yearStart)-1}`);
+        } else if (yearEnd) {
+            queryParts.push(`PUBYEAR < ${parseInt(yearEnd)+1}`);
+        }
+
+        if (req.query.oa === 'true') {
+            queryParts.push(`OPENACCESS(1)`);
+        }
+
+        const finalQuery = queryParts.length > 0 ? queryParts.join(' AND ') : '';
+
+        if (!finalQuery) {
+            return res.status(400).json({ error: 'Harap isikan setidaknya satu kriteria pencarian' });
+        }
+
+        const apiKey = process.env.SCOPUS_API_KEY;
+        if (!apiKey || apiKey === 'your_api_key_here') {
+             return res.status(500).json({ error: 'API Key Scopus belum dikonfigurasi di file .env' });
+        }
+
+        let scopusSort = 'relevancy';
+        if (sort === 'year') scopusSort = '-coverDate';
+        if (sort === 'citation') scopusSort = '-citedby-count';
+
+        // Fetch 25 entries (Max limit allowed for your standard API tier without view: 'COMPLETE')
+        const response = await axios.get('https://api.elsevier.com/content/search/scopus', {
+            headers: {
+                'X-ELS-APIKey': apiKey,
+                'Accept': 'application/json'
+            },
+            params: {
+                query: finalQuery,
+                count: 25, // Maximum threshold for standard tier without Exceeds Maximum limit error
+                start: start,
+                sort: scopusSort // Must match the search display's sorting
+            }
+        });
+
+        const data = response.data['search-results'];
+        if (!data || !data.entry) {
+            return res.json({ total: 0, yearStats: {}, journalStats: {}, avgAuthor: 0, openAccess: { yes: 0, no: 0 } });
+        }
+
+        const entries = data.entry;
+        const total = entries.length;
+
+        const yearStats = {};
+        const journalStatsMap = {};
+        let totalAuthors = 0;
+        let openAccessYes = 0;
+        let openAccessNo = 0;
+
+        entries.forEach(item => {
+            // 1. Year
+            const year = item['prism:coverDate'] ? item['prism:coverDate'].substring(0, 4) : 'Unknown';
+            yearStats[year] = (yearStats[year] || 0) + 1;
+
+            // 2. Journal/Source name
+            const journal = item['prism:publicationName'] || 'Unknown Source';
+            journalStatsMap[journal] = (journalStatsMap[journal] || 0) + 1;
+
+            // 3. Authors
+            if (item['author'] && Array.isArray(item['author'])) {
+                totalAuthors += item['author'].length;
+            } else if (item['dc:creator']) {
+                // Sometime dc:creator is a string with comma separated names, usually count by comma + 1
+                totalAuthors += item['dc:creator'].split(',').length;
+            } else {
+                totalAuthors += 1; // Assuming at least 1 author if not specified clearly but journal exists
+            }
+
+            // 4. Open Access
+            if (item['openaccess'] == '1' || item['openaccess'] === true || item['openaccess'] === 'true') {
+                openAccessYes++;
+            } else {
+                openAccessNo++;
+            }
+        });
+
+        // Get Top 5 Journals
+        const sortedJournals = Object.entries(journalStatsMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .reduce((obj, [key, val]) => {
+                obj[key] = val;
+                return obj;
+            }, {});
+
+        const avgAuthor = total > 0 ? (totalAuthors / total).toFixed(1) : 0;
+
+        res.json({
+            total: total,
+            yearStats,
+            journalStats: sortedJournals,
+            avgAuthor: parseFloat(avgAuthor),
+            openAccess: {
+                yes: openAccessYes,
+                no: openAccessNo
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching Scopus insight data:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Terjadi kesalahan saat mengambil insight dari Scopus API' });
+    }
+}
+
 module.exports = {
-    searchScopus
+    searchScopus,
+    getScopusInsight
 };
