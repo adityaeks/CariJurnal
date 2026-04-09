@@ -1,0 +1,58 @@
+📄 Fitur Scan Dokumen (Seperti Scanner / CamScanner)
+🔹 Core Features (Wajib)
+Upload / Capture Foto
+Upload dari file
+Ambil langsung dari kamera (HP/laptop)
+Auto Rotate
+Gambar otomatis diputar agar tidak terbalik
+Resize & Compress
+Ukuran gambar dioptimalkan agar ringan
+🔹 Smart Processing (Ciri khas scanner)
+Auto Crop Dokumen
+Deteksi kertas dari background
+Crop otomatis area dokumen
+Perspective Correction
+Meluruskan dokumen yang miring
+Hasil jadi seperti di-scan flat
+Scanner Effect (Hitam Putih)
+Grayscale → Normalize → Threshold
+Hasil:
+teks lebih tajam
+background putih bersih
+🔹 Output
+Convert ke PDF
+Ukuran A4
+1 gambar = 1 halaman
+Multi-page PDF
+Banyak foto → 1 file PDF
+🔹 User Experience (Frontend)
+Preview Hasil Scan
+User bisa lihat sebelum download
+Mode Scan
+Warna asli
+Grayscale
+Hitam putih (default)
+Crop Manual (optional)
+Kalau auto crop gagal, user bisa edit sendiri
+🔹 System & Backend
+File Handling
+Upload aman (validasi file)
+Auto delete file sementara
+Optimasi
+Kompres PDF
+Batasi ukuran file
+
+Kalau disederhanakan:
+
+👉 Level MVP (cepat jadi)
+
+upload foto
+scanner effect
+convert PDF
+
+👉 Level Pro (kayak CamScanner)
+
+auto crop
+perspective correction
+multi halaman
+OCR

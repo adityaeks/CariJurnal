@@ -49,6 +49,10 @@ app.get('/translate', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'translate.html'));
 });
 
+app.get('/scanner', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'scanner.html'));
+});
+
 // Error handler for multer
 app.use((err, req, res, next) => {
     if (err.message) {

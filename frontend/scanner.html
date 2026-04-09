@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JurnalSeng - Scanner Dokumen Multi-Halaman</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
+    <!-- jsPDF Integration -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- No external crop library needed - uses native canvas -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .thumb-active { border-color: #4f46e5; transform: scale(1.05); }
+        .thumb-inactive { border-color: transparent; }
+        #cropCanvas { display: block; cursor: crosshair; touch-action: none; }
+        #magnifierCanvas {
+            position: absolute;
+            top: 12px; left: 12px;
+            width: 130px; height: 130px;
+            border-radius: 50%;
+            border: 3px solid #6366f1;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+            pointer-events: none;
+            display: none;
+            background: #000;
+        }
+        /* Toast Notification */
+        #toastContainer { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast {
+            pointer-events: auto;
+            display: flex; align-items: center; gap-10px;
+            gap: 10px; padding: 12px 16px;
+            border-radius: 12px; font-size: 13px; font-weight: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            backdrop-filter: blur(8px);
+            min-width: 240px; max-width: 360px;
+            animation: toastIn 0.35s cubic-bezier(.21,1.02,.73,1) forwards;
+            border: 1px solid;
+        }
+        .toast.removing { animation: toastOut 0.3s ease forwards; }
+        .toast-success { background: rgba(16,185,129,0.95); color: #fff; border-color: rgba(255,255,255,0.2); }
+        .toast-error   { background: rgba(239,68,68,0.95);  color: #fff; border-color: rgba(255,255,255,0.2); }
+        .toast-info    { background: rgba(99,102,241,0.95); color: #fff; border-color: rgba(255,255,255,0.2); }
+        .toast-warn    { background: rgba(245,158,11,0.95); color: #fff; border-color: rgba(255,255,255,0.2); }
+        @keyframes toastIn  { from { opacity:0; transform: translateX(60px) scale(0.9); } to { opacity:1; transform: translateX(0) scale(1); } }
+        @keyframes toastOut { from { opacity:1; transform: translateX(0) scale(1); }     to { opacity:0; transform: translateX(60px) scale(0.9); } }
+        /* Confirm Modal */
+        #confirmOverlay {
+            position: fixed; inset: 0; z-index: 9998;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        #confirmOverlay.active { opacity: 1; pointer-events: auto; }
+        #confirmBox {
+            background: #fff; border-radius: 16px; padding: 24px;
+            max-width: 340px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+            transform: scale(0.9); transition: transform 0.2s;
+        }
+        .dark #confirmBox { background: #1e293b; color: #f1f5f9; }
+        #confirmOverlay.active #confirmBox { transform: scale(1); }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmOverlay">
+        <div id="confirmBox">
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm">Konfirmasi</h3>
+                    <p id="confirmMsg" class="text-sm text-slate-500 dark:text-slate-400 mt-1"></p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="confirmCancelBtn" class="px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors">Batal</button>
+                <button id="confirmOkBtn" class="px-4 py-2 text-sm font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Navbar -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <a href="/" class="flex items-center text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span class="font-medium hidden sm:block">Kembali</span>
+            </a>
+            <h1 class="text-xl font-bold tracking-tight text-center">Scanner <span class="text-indigo-600 dark:text-indigo-400">Dokumen</span></h1>
+            <div class="flex items-center gap-3">
+                <button id="themeToggleBtn" aria-label="Toggle Dark Mode" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <svg id="themeToggleLightIcon" class="hidden dark:block w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
+                    </svg>
+                    <svg id="themeToggleDarkIcon" class="block dark:hidden w-5 h-5 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6 mt-2 gap-6 grid grid-cols-1 md:grid-cols-12">
+        <!-- Sidebar Controls -->
+        <div class="col-span-1 md:col-span-4 lg:col-span-3 space-y-5 flex flex-col">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+                <h2 class="text-sm border-b border-slate-200 dark:border-slate-700 pb-2 font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-4 flex justify-between items-center">
+                    Masukan Dokumen
+                    <span class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-xs" id="pageCountBadge">0 Hal</span>
+                </h2>
+                <!-- Allow multiple files -->
+                <input type="file" id="imageInput" accept="image/*" multiple class="hidden">
+                <button onclick="document.getElementById('imageInput').click()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Tambah Halaman
+                </button>
+            </div>
+
+            <!-- Filter Controls (Specific to current active page) -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm opacity-50 pointer-events-none transition-opacity flex-1" id="filterControls">
+                <h2 class="text-sm border-b border-slate-200 dark:border-slate-700 pb-2 font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-4">Efek Halaman Aktif</h2>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                        <input type="radio" name="filterType" value="normal" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4 filter-radio">
+                        <span class="text-sm font-medium">Asli (Berwarna)</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                        <input type="radio" name="filterType" value="grayscale" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4 filter-radio">
+                        <span class="text-sm font-medium">Skala Abu-abu (Grayscale)</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                        <input type="radio" name="filterType" value="bw" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4 filter-radio">
+                        <span class="text-sm font-medium flex-1">Hitam Putih (Scanner)</span>
+                    </label>
+                    
+                    <div id="thresholdContainer" class="hidden mt-2 px-2 pb-2">
+                        <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+                            <span>Lebih Gelap</span>
+                            <span id="thresholdVal">110</span>
+                            <span>Lebih Terang</span>
+                        </div>
+                        <input type="range" id="thresholdSlider" min="50" max="200" value="110" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-indigo-600">
+                    </div>
+                </div>
+
+                <div class="mt-4 flex gap-2">
+                    <button onclick="applyFilterToAll()" class="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Terapkan Semua
+                    </button>
+                    <button onclick="deleteActivePage()" class="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 py-2 px-3 rounded-lg transition-colors tooltip" title="Hapus halaman ini">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+
+
+                <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 pb-2">
+                    <button onclick="downloadPDF()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm" id="btnDownload">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Export <span id="pdfPageText"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Working Area -->
+        <div class="col-span-1 md:col-span-8 lg:col-span-9 flex flex-col h-[80vh] md:h-[700px] relative">
+            <!-- 4-Point Perspective Crop Overlay -->
+            <div id="cropModeContainer" class="absolute inset-0 bg-slate-950/97 z-[60] flex flex-col rounded-2xl hidden overflow-hidden border border-slate-700 shadow-2xl">
+                <div class="text-white px-4 py-3 flex items-center justify-between bg-slate-900 border-b border-slate-700 gap-3 flex-wrap">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                        <span class="font-semibold text-sm tracking-wide">Mode Potong Perspektif</span>
+                        <span class="text-xs text-slate-400 hidden sm:inline">Seret 4 sudut untuk menyesuaikan area potong</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="resetCropPoints()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-medium transition-colors">Reset Sudut</button>
+                        <button onclick="cancelCrop()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">Batal</button>
+                        <button id="btnApplyCrop" onclick="applyCrop()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold transition-colors shadow-sm">✓ Simpan Potongan</button>
+                    </div>
+                </div>
+                <div id="cropCanvasWrapper" class="flex-1 w-full bg-black flex items-center justify-center overflow-hidden relative">
+                    <canvas id="cropCanvas"></canvas>
+                    <canvas id="magnifierCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-t-2xl border border-slate-200 dark:border-slate-700 flex-1 flex flex-col shadow-sm overflow-hidden mb-0 relative">
+                <div class="flex flex-wrap items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 hidden sm:inline">Preview</span>
+                        <span id="imageResolution" class="text-xs font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">Pilih gambar</span>
+                    </div>
+
+                    <!-- Zoom Controls -->
+                    <div class="flex items-center gap-1">
+                        <button onclick="zoomOut()" class="w-7 h-7 flex justify-center items-center bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded shadow-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors" title="Zoom Out (Ctrl + Scroll)">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
+                        </button>
+                        <div id="zoomLabel" class="text-xs font-semibold w-12 text-center text-slate-600 dark:text-slate-300">Fit</div>
+                        <button onclick="zoomIn()" class="w-7 h-7 flex justify-center items-center text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded shadow-sm hover:bg-slate-50 transition-colors" title="Zoom In (Ctrl + Scroll)">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                        <button id="btnResetZoom" onclick="resetZoom()" style="display:none" class="px-2 h-7 ml-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 transition-colors">Reset</button>
+                        <button onclick="startCropMode()" class="px-2 h-7 ml-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition-colors flex items-center gap-1" title="Crop Gambar">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 0 3 3 0 004.243 0zm5.758-5.758a3 3 0 10-4.243 0 3 3 0 004.243 0z" /></svg>
+                            Crop
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas Area. Overflow auto for scrolling zoomed canvas. display flex + justify center -->
+                <div id="canvasContainer" class="flex-1 bg-slate-200/50 dark:bg-slate-900 border-4 border-transparent flex justify-center items-center overflow-auto p-4 md:p-8 relative">
+                    <div id="emptyState" class="text-center text-slate-400 dark:text-slate-500 absolute m-auto left-0 right-0 top-[40%]">
+                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p class="text-sm">Silakan pilih foto dokumen.</p>
+                    </div>
+
+                    <!-- Div wrapper required for absolute bounding limits on zoom if not using CSS transform -->
+                    <!-- The active canvas -->
+                    <canvas id="previewCanvas" class="hidden drop-shadow-2xl border border-slate-300 dark:border-slate-700 bg-white mx-auto my-auto transition-transform" style="transform-origin: center center; max-width: 100%; max-height: 100%;"></canvas>
+
+                    <!-- Hidden canvas for processing individual pages silently -->
+                    <canvas id="processCanvas" class="hidden"></canvas>
+                </div>
+            </div>
+
+            <!-- Thumbnail Navigator (Horizontal) -->
+            <div id="thumbnailBar" class="h-32 bg-white dark:bg-slate-800 border-x border-b border-slate-200 dark:border-slate-700 rounded-b-2xl shadow-sm flex items-center p-3 gap-3 overflow-x-auto hidden">
+                <!-- Thumbs injected by JS -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Theme ---
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.setItem('color-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            });
+        }
+
+        // --- Core Variables ---
+        let pages = []; // Array of objects: { id, imgObject, filter, threshold, thumbURL }
+        let currentIndex = -1;
+        
+        let currentZoom = 0; // 0 = Fit
+
+        // --- DOM Elements ---
+        const imageInput = document.getElementById('imageInput');
+        
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const processCanvas = document.getElementById('processCanvas');
+        const processCtx = processCanvas.getContext('2d', { willReadFrequently: true });
+
+        const canvasContainer = document.getElementById('canvasContainer');
+        const emptyState = document.getElementById('emptyState');
+        const thumbnailBar = document.getElementById('thumbnailBar');
+        const countBadge = document.getElementById('pageCountBadge');
+        
+        const filterControls = document.getElementById('filterControls');
+        const filterRadios = document.querySelectorAll('.filter-radio');
+        const thresholdContainer = document.getElementById('thresholdContainer');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdValText = document.getElementById('thresholdVal');
+        
+        const imageResolutionText = document.getElementById('imageResolution');
+        const zoomLabel = document.getElementById('zoomLabel');
+        const pdfPageText = document.getElementById('pdfPageText');
+        const btnDownload = document.getElementById('btnDownload');
+        const btnResetZoom = document.getElementById('btnResetZoom');
+
+        // --- Zooming ---
+        function zoomIn() {
+            if (pages.length === 0) return;
+            if (currentZoom === 0) currentZoom = 1;
+            currentZoom += 0.25;
+            if (currentZoom > 4) currentZoom = 4;
+            applyZoom();
+        }
+
+        function zoomOut() {
+            if (pages.length === 0) return;
+            if (currentZoom === 0) currentZoom = 1;
+            currentZoom -= 0.25;
+            if (currentZoom < 0.25) currentZoom = 0.25;
+            applyZoom();
+        }
+
+        function resetZoom() {
+            if (pages.length === 0) return;
+            currentZoom = 0;
+            applyZoom();
+        }
+
+        function applyZoom() {
+            if (currentZoom === 0) {
+                zoomLabel.textContent = "Fit";
+                canvasContainer.classList.remove('cursor-grab', 'cursor-grabbing');
+                btnResetZoom.style.display = 'none';
+                canvas.style.maxWidth = '100%';
+                canvas.style.maxHeight = '100%';
+                canvas.style.width = 'auto';
+                canvas.style.height = 'auto';
+            } else {
+                zoomLabel.textContent = Math.round(currentZoom * 100) + "%";
+                canvasContainer.classList.add('cursor-grab');
+                btnResetZoom.style.display = 'inline-block';
+                canvas.style.maxWidth = 'none';
+                canvas.style.maxHeight = 'none';
+                
+                const imgRatio = canvas.width / canvas.height;
+                const contClientW = canvasContainer.clientWidth - 64; // padding
+                const contClientH = canvasContainer.clientHeight - 64;
+                const contRatio = contClientW / contClientH;
+                
+                let baseW, baseH;
+                if (imgRatio > contRatio) {
+                    baseW = contClientW;
+                    baseH = baseW / imgRatio;
+                } else {
+                    baseH = contClientH;
+                    baseW = baseH * imgRatio;
+                }
+                
+                canvas.style.width = (baseW * currentZoom) + 'px';
+                canvas.style.height = (baseH * currentZoom) + 'px';
+            }
+        }
+
+        // Zoom by scroll wheel on Canvas Container
+        canvasContainer.addEventListener('wheel', (e) => {
+            if (pages.length === 0) return;
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                if (e.deltaY < 0) {
+                    zoomIn();
+                } else {
+                    zoomOut();
+                }
+            }
+        }, { passive: false });
+
+        // --- Panning / Dragging Logic ---
+        let isDragging = false;
+        let startX, startY, scrollLeft, scrollTop;
+
+        canvasContainer.addEventListener('mousedown', (e) => {
+            if (currentZoom === 0) return;
+            isDragging = true;
+            canvasContainer.classList.add('cursor-grabbing');
+            canvasContainer.classList.remove('cursor-grab');
+            startX = e.pageX - canvasContainer.offsetLeft;
+            startY = e.pageY - canvasContainer.offsetTop;
+            scrollLeft = canvasContainer.scrollLeft;
+            scrollTop = canvasContainer.scrollTop;
+        });
+
+        canvasContainer.addEventListener('mouseleave', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            canvasContainer.classList.remove('cursor-grabbing');
+            if(currentZoom > 0) canvasContainer.classList.add('cursor-grab');
+        });
+
+        canvasContainer.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            canvasContainer.classList.remove('cursor-grabbing');
+            if(currentZoom > 0) canvasContainer.classList.add('cursor-grab');
+        });
+
+        canvasContainer.addEventListener('mousemove', (e) => {
+            if (!isDragging || currentZoom === 0) return;
+            e.preventDefault();
+            const x = e.pageX - canvasContainer.offsetLeft;
+            const y = e.pageY - canvasContainer.offsetTop;
+            const walkX = (x - startX) * 1.5; // multiplier for drag speed
+            const walkY = (y - startY) * 1.5;
+            canvasContainer.scrollLeft = scrollLeft - walkX;
+            canvasContainer.scrollTop = scrollTop - walkY;
+        });
+
+        // --- File Handling ---
+        imageInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            btnDownload.disabled = true;
+            let loadedCount = 0;
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const newPage = {
+                            id: Date.now() + Math.random(),
+                            imgObject: img,
+                            filter: 'bw', 
+                            threshold: 110,
+                            thumbURL: createThumbnail(img)
+                        };
+                        pages.push(newPage);
+                        loadedCount++;
+
+                        if (loadedCount === files.length) {
+                            if (currentIndex === -1) currentIndex = pages.length - files.length;
+                            updateUI();
+                        }
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            });
+            imageInput.value = ""; // Reset input
+        });
+
+        function createThumbnail(img) {
+            const tempC = document.createElement('canvas');
+            const tempCtx = tempC.getContext('2d');
+            let w = img.width, h = img.height;
+            if(w > h) { h = Math.round(h * 100/w); w = 100; }
+            else { w = Math.round(w * 100/h); h = 100; }
+            tempC.width = w; tempC.height = h;
+            tempCtx.drawImage(img, 0, 0, w, h);
+            return tempC.toDataURL('image/jpeg', 0.5);
+        }
+
+        // --- UI Updates ---
+        function updateUI() {
+            if (pages.length === 0) {
+                currentIndex = -1;
+                emptyState.classList.remove('hidden');
+                canvas.classList.add('hidden');
+                thumbnailBar.classList.add('hidden');
+                filterControls.classList.add('opacity-50', 'pointer-events-none');
+                countBadge.textContent = `0 Hal`;
+                imageResolutionText.textContent = `Pilih gambar`;
+                pdfPageText.textContent = '';
+                btnDownload.disabled = true;
+                currentZoom = 0;
+                applyZoom();
+                return;
+            }
+
+            if(currentIndex >= pages.length) currentIndex = pages.length - 1;
+            if(currentIndex < 0) currentIndex = 0;
+
+            emptyState.classList.add('hidden');
+            canvas.classList.remove('hidden');
+            thumbnailBar.classList.remove('hidden');
+            filterControls.classList.remove('opacity-50', 'pointer-events-none');
+            countBadge.textContent = `${pages.length} Hal`;
+            pdfPageText.textContent = `(${pages.length} Hal)`;
+            btnDownload.disabled = false;
+
+            renderThumbnails();
+            loadActivePageControls();
+            renderActiveCanvas();
+            applyZoom(); // Re-apply zoom logic which preserves state across page switches
+        }
+
+        function renderThumbnails() {
+            thumbnailBar.innerHTML = '';
+            pages.forEach((page, index) => {
+                const div = document.createElement('div');
+                div.className = `flex-none w-20 h-24 rounded-lg overflow-hidden cursor-pointer relative border-[3px] transition-all bg-slate-100 dark:bg-slate-900 group`;
+                
+                if (index === currentIndex) {
+                    div.classList.add('border-indigo-500', 'shadow-md');
+                } else {
+                    div.classList.add('border-transparent', 'hover:border-slate-300', 'dark:hover:border-slate-600', 'opacity-70', 'hover:opacity-100');
+                }
+                
+                div.onclick = () => {
+                    currentIndex = index;
+                    // Auto-reset zoom when moving to another page to ensure nice viewing experience
+                    currentZoom = 0;
+                    updateUI();
+                };
+
+                const img = document.createElement('img');
+                img.src = page.thumbURL;
+                img.className = "w-full h-full object-cover";
+                
+                const badge = document.createElement('div');
+                badge.className = "absolute bottom-1 right-1 bg-black/70 text-white text-[10px] shadow font-bold px-1.5 py-0.5 rounded";
+                badge.innerText = index + 1;
+
+                div.appendChild(img);
+                div.appendChild(badge);
+                thumbnailBar.appendChild(div);
+            });
+        }
+
+        function loadActivePageControls() {
+            const page = pages[currentIndex];
+            document.querySelector(`input[name="filterType"][value="${page.filter}"]`).checked = true;
+            document.getElementById('thresholdSlider').value = page.threshold;
+            document.getElementById('thresholdVal').textContent = page.threshold;
+            
+            if (page.filter === 'bw') {
+                thresholdContainer.classList.remove('hidden');
+            } else {
+                thresholdContainer.classList.add('hidden');
+            }
+        }
+
+        // --- Filter Processing ---
+        function processImageOntoCanvas(imgObj, c, context, filter, thresholdVal) {
+            let width = imgObj.width;
+            let height = imgObj.height;
+            const MAX_DIM = 2400; 
+            
+            if (width > MAX_DIM || height > MAX_DIM) {
+                if (width > height) {
+                    height = Math.round((height * MAX_DIM) / width);
+                    width = MAX_DIM;
+                } else {
+                    width = Math.round((width * MAX_DIM) / height);
+                    height = MAX_DIM;
+                }
+            }
+            c.width = width;
+            c.height = height;
+            context.drawImage(imgObj, 0, 0, width, height);
+
+            if (filter === 'normal') return { width, height };
+
+            const imageData = context.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            if (filter === 'grayscale') {
+                for (let i = 0; i < data.length; i += 4) {
+                    const lu = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                    data[i] = data[i+1] = data[i+2] = lu; 
+                }
+            } else if (filter === 'bw') {
+                const th = parseInt(thresholdVal, 10);
+                for (let i = 0; i < data.length; i += 4) {
+                    const lu = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                    const val = lu >= th ? 255 : 0;
+                    data[i] = data[i+1] = data[i+2] = val; 
+                }
+            }
+            context.putImageData(imageData, 0, 0);
+            return { width, height };
+        }
+
+        function renderActiveCanvas() {
+            const page = pages[currentIndex];
+            const dims = processImageOntoCanvas(page.imgObject, canvas, ctx, page.filter, page.threshold);
+            imageResolutionText.textContent = `Hal ${currentIndex + 1} • ${dims.width} × ${dims.height} px`;
+        }
+
+        filterRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                pages[currentIndex].filter = e.target.value;
+                loadActivePageControls();
+                renderActiveCanvas();
+            });
+        });
+
+        thresholdSlider.addEventListener('input', (e) => {
+            pages[currentIndex].threshold = e.target.value;
+            thresholdValText.textContent = e.target.value;
+            if(pages[currentIndex].filter === 'bw') {
+                renderActiveCanvas();
+            }
+        });
+
+        function applyFilterToAll() {
+            const activePage = pages[currentIndex];
+            pages.forEach(p => {
+                p.filter = activePage.filter;
+                p.threshold = activePage.threshold;
+            });
+            showToast('Filter & Threshold diterapkan ke semua halaman!', 'success');
+        }
+
+        function deleteActivePage() {
+            showConfirm('Yakin ingin menghapus halaman ini?', () => {
+                pages.splice(currentIndex, 1);
+                updateUI();
+            });
+        }
+
+        // =========================================================
+        // --- 4-Point Perspective Crop Engine ---
+        // =========================================================
+        const cropModeContainer = document.getElementById('cropModeContainer');
+        const cropCanvas        = document.getElementById('cropCanvas');
+        const cropCtxDraw       = cropCanvas.getContext('2d');
+        const magnifierCanvas   = document.getElementById('magnifierCanvas');
+        const magnifierCtx      = magnifierCanvas.getContext('2d');
+        const cropCanvasWrapper = document.getElementById('cropCanvasWrapper');
+
+        // cropPoints: [TL, TR, BR, BL] in IMAGE pixel coordinates
+        let cropPoints = [];
+        let cropSourceImg = null;   // raw HTMLImageElement
+        let cropScale = 1;          // display scale: canvas px / image px
+        let cropOffsetX = 0;        // pan offset in canvas px
+        let cropOffsetY = 0;
+        let dragIndex = -1;         // which handle is being dragged
+        const HANDLE_RADIUS = 22;
+        const MAG_SIZE = 130;       // magnifier canvas size
+
+        magnifierCanvas.width  = MAG_SIZE;
+        magnifierCanvas.height = MAG_SIZE;
+
+        // ---------- HELPERS ----------
+        function imgToCvs(pt) {
+            return { x: pt.x * cropScale + cropOffsetX, y: pt.y * cropScale + cropOffsetY };
+        }
+        function cvsToImg(pt) {
+            return { x: (pt.x - cropOffsetX) / cropScale, y: (pt.y - cropOffsetY) / cropScale };
+        }
+        function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+        function defaultCropPoints(img) {
+            const pad = Math.min(img.width, img.height) * 0.04;
+            return [
+                { x: pad,            y: pad            },  // TL
+                { x: img.width-pad,  y: pad            },  // TR
+                { x: img.width-pad,  y: img.height-pad },  // BR
+                { x: pad,            y: img.height-pad },  // BL
+            ];
+        }
+
+        // ---------- DRAW ----------
+        function drawCropOverlay() {
+            const W = cropCanvas.width, H = cropCanvas.height;
+            cropCtxDraw.clearRect(0, 0, W, H);
+
+            // Draw source image
+            cropCtxDraw.drawImage(cropSourceImg,
+                cropOffsetX, cropOffsetY,
+                cropSourceImg.width * cropScale,
+                cropSourceImg.height * cropScale);
+
+            // Dim outside polygon
+            const pts = cropPoints.map(imgToCvs);
+            cropCtxDraw.save();
+            cropCtxDraw.fillStyle = 'rgba(0,0,0,0.5)';
+            cropCtxDraw.fillRect(0, 0, W, H);
+            cropCtxDraw.globalCompositeOperation = 'destination-out';
+            cropCtxDraw.beginPath();
+            cropCtxDraw.moveTo(pts[0].x, pts[0].y);
+            pts.forEach(p => cropCtxDraw.lineTo(p.x, p.y));
+            cropCtxDraw.closePath();
+            cropCtxDraw.fill();
+            cropCtxDraw.restore();
+
+            // Draw polygon border
+            cropCtxDraw.save();
+            cropCtxDraw.strokeStyle = '#6366f1';
+            cropCtxDraw.lineWidth = 2;
+            cropCtxDraw.setLineDash([]);
+            cropCtxDraw.beginPath();
+            cropCtxDraw.moveTo(pts[0].x, pts[0].y);
+            pts.forEach(p => cropCtxDraw.lineTo(p.x, p.y));
+            cropCtxDraw.closePath();
+            cropCtxDraw.stroke();
+
+            // Draw grid lines inside polygon (rule-of-thirds)
+            cropCtxDraw.strokeStyle = 'rgba(255,255,255,0.2)';
+            cropCtxDraw.lineWidth = 1;
+            for (let t of [1/3, 2/3]) {
+                const ta = lerp2(pts[0], pts[3], t);
+                const tb = lerp2(pts[1], pts[2], t);
+                const tc = lerp2(pts[0], pts[1], t);
+                const td = lerp2(pts[3], pts[2], t);
+                cropCtxDraw.beginPath();
+                cropCtxDraw.moveTo(ta.x, ta.y); cropCtxDraw.lineTo(tb.x, tb.y);
+                cropCtxDraw.moveTo(tc.x, tc.y); cropCtxDraw.lineTo(td.x, td.y);
+                cropCtxDraw.stroke();
+            }
+            cropCtxDraw.restore();
+
+            // Draw handles
+            const labels = ['TL','TR','BR','BL'];
+            pts.forEach((p, i) => {
+                // Outer circle
+                cropCtxDraw.beginPath();
+                cropCtxDraw.arc(p.x, p.y, HANDLE_RADIUS, 0, Math.PI * 2);
+                cropCtxDraw.fillStyle = i === dragIndex ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.15)';
+                cropCtxDraw.fill();
+                cropCtxDraw.strokeStyle = '#6366f1';
+                cropCtxDraw.lineWidth = 3;
+                cropCtxDraw.stroke();
+
+                // Inner dot
+                cropCtxDraw.beginPath();
+                cropCtxDraw.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                cropCtxDraw.fillStyle = '#fff';
+                cropCtxDraw.fill();
+
+                // Corner L-bracket
+                drawCornerBracket(cropCtxDraw, p.x, p.y, i);
+            });
+        }
+
+        function lerp2(a, b, t) { return { x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t }; }
+
+        function drawCornerBracket(ctx, x, y, corner) {
+            const s = 12;
+            const dirs = [
+                [[s,0],[0,s]],   // TL → right & down
+                [[-s,0],[0,s]],  // TR → left & down
+                [[-s,0],[0,-s]], // BR → left & up
+                [[s,0],[0,-s]]   // BL → right & up
+            ];
+            const [h, v] = dirs[corner];
+            ctx.save();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(x + h[0], y + h[1]);
+            ctx.lineTo(x, y);
+            ctx.lineTo(x + v[0], y + v[1]);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // ---------- MAGNIFIER ----------
+        function drawMagnifier(imgPt) {
+            magnifierCanvas.style.display = 'block';
+            const zoomR = 60; // source px radius to zoom
+            const sX = Math.round(imgPt.x - zoomR);
+            const sY = Math.round(imgPt.y - zoomR);
+            const sW = zoomR * 2, sH = zoomR * 2;
+
+            magnifierCtx.clearRect(0, 0, MAG_SIZE, MAG_SIZE);
+            // clip to circle
+            magnifierCtx.save();
+            magnifierCtx.beginPath();
+            magnifierCtx.arc(MAG_SIZE/2, MAG_SIZE/2, MAG_SIZE/2, 0, Math.PI*2);
+            magnifierCtx.clip();
+            magnifierCtx.drawImage(cropSourceImg, sX, sY, sW, sH, 0, 0, MAG_SIZE, MAG_SIZE);
+            // crosshair
+            magnifierCtx.strokeStyle = 'rgba(99,102,241,0.9)';
+            magnifierCtx.lineWidth = 1.5;
+            magnifierCtx.beginPath();
+            magnifierCtx.moveTo(MAG_SIZE/2, 0); magnifierCtx.lineTo(MAG_SIZE/2, MAG_SIZE);
+            magnifierCtx.moveTo(0, MAG_SIZE/2); magnifierCtx.lineTo(MAG_SIZE, MAG_SIZE/2);
+            magnifierCtx.stroke();
+            magnifierCtx.restore();
+        }
+
+        // ---------- MOUSE EVENTS ----------
+        function getCropCanvasPos(e) {
+            const rect = cropCanvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        cropCanvas.addEventListener('mousedown', e => {
+            const cvsPt = getCropCanvasPos(e);
+            const pts   = cropPoints.map(imgToCvs);
+            let minD = Infinity;
+            pts.forEach((p, i) => {
+                const d = dist(cvsPt, p);
+                if (d < HANDLE_RADIUS + 8 && d < minD) { minD = d; dragIndex = i; }
+            });
+        });
+
+        cropCanvas.addEventListener('mousemove', e => {
+            if (dragIndex === -1) return;
+            const cvsPt = getCropCanvasPos(e);
+            const imgPt = cvsToImg(cvsPt);
+            // Clamp to image bounds
+            imgPt.x = Math.max(0, Math.min(cropSourceImg.width,  imgPt.x));
+            imgPt.y = Math.max(0, Math.min(cropSourceImg.height, imgPt.y));
+            cropPoints[dragIndex] = imgPt;
+            drawCropOverlay();
+            drawMagnifier(imgPt);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (dragIndex !== -1) {
+                dragIndex = -1;
+                magnifierCanvas.style.display = 'none';
+                drawCropOverlay();
+            }
+        });
+
+        // Touch support
+        cropCanvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const t = e.touches[0];
+            cropCanvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+        }, { passive: false });
+        cropCanvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const t = e.touches[0];
+            cropCanvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+        }, { passive: false });
+        cropCanvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            cropCanvas.dispatchEvent(new MouseEvent('mouseup', {}));
+        }, { passive: false });
+
+        // ---------- OPEN / CANCEL ----------
+        function startCropMode() {
+            if (pages.length === 0 || currentIndex < 0) return;
+            const page = pages[currentIndex];
+            cropSourceImg = page.imgObject;
+
+            cropModeContainer.classList.remove('hidden');
+
+            // Size canvas to wrapper
+            requestAnimationFrame(() => {
+                const wrapper = cropCanvasWrapper;
+                const W = wrapper.clientWidth  || 800;
+                const H = wrapper.clientHeight || 550;
+                cropCanvas.width  = W;
+                cropCanvas.height = H;
+
+                // Fit image in canvas
+                const scaleX = W / cropSourceImg.width;
+                const scaleY = H / cropSourceImg.height;
+                cropScale = Math.min(scaleX, scaleY) * 0.96;
+                cropOffsetX = (W - cropSourceImg.width  * cropScale) / 2;
+                cropOffsetY = (H - cropSourceImg.height * cropScale) / 2;
+
+                cropPoints = defaultCropPoints(cropSourceImg);
+                dragIndex  = -1;
+                magnifierCanvas.style.display = 'none';
+                drawCropOverlay();
+            });
+        }
+
+        function resetCropPoints() {
+            if (!cropSourceImg) return;
+            cropPoints = defaultCropPoints(cropSourceImg);
+            drawCropOverlay();
+        }
+
+        function cancelCrop() {
+            cropModeContainer.classList.add('hidden');
+            dragIndex = -1;
+        }
+
+        // ---------- PERSPECTIVE WARP ----------
+        // Computes 3x3 homography H mapping src → dst using Direct Linear Transform (DLT).
+        // Given 4 point correspondences (x,y) → (x',y'), we solve for h0..h7 (h8=1):
+        //   x' = (h0*x + h1*y + h2) / (h6*x + h7*y + 1)
+        //   y' = (h3*x + h4*y + h5) / (h6*x + h7*y + 1)
+        // Rearranging gives two linear equations per point pair:
+        //   h0*x + h1*y + h2 - h6*x*x' - h7*y*x' = x'
+        //   h3*x + h4*y + h5 - h6*x*y' - h7*y*y' = y'
+        function computeHomography(srcPts, dstPts) {
+            const A = []; // 8x9 augmented matrix [8 unknowns | rhs]
+            for (let i = 0; i < 4; i++) {
+                const x  = srcPts[i][0], y  = srcPts[i][1];
+                const xp = dstPts[i][0], yp = dstPts[i][1];
+                A.push([ x,  y,  1,  0,  0,  0, -x*xp, -y*xp, xp]);
+                A.push([ 0,  0,  0,  x,  y,  1, -x*yp, -y*yp, yp]);
+            }
+            // Gauss-Jordan elimination with partial pivoting
+            const n = 8;
+            for (let col = 0; col < n; col++) {
+                let maxRow = col;
+                for (let row = col + 1; row < n; row++)
+                    if (Math.abs(A[row][col]) > Math.abs(A[maxRow][col])) maxRow = row;
+                [A[col], A[maxRow]] = [A[maxRow], A[col]];
+                const pivot = A[col][col];
+                if (Math.abs(pivot) < 1e-10) continue;
+                for (let j = col; j <= n; j++) A[col][j] /= pivot;
+                for (let row = 0; row < n; row++) {
+                    if (row === col) continue;
+                    const f = A[row][col];
+                    for (let j = col; j <= n; j++) A[row][j] -= f * A[col][j];
+                }
+            }
+            const h = A.map(row => row[n]); // h0..h7
+            h.push(1); // h8 = 1
+            return h;
+        }
+
+        function warpPerspective(srcImg, pts) {
+            // pts = [TL, TR, BR, BL] in source image pixels
+            const w1 = dist(pts[0], pts[1]);
+            const w2 = dist(pts[3], pts[2]);
+            const h1 = dist(pts[0], pts[3]);
+            const h2 = dist(pts[1], pts[2]);
+            const outW = Math.round(Math.max(w1, w2));
+            const outH = Math.round(Math.max(h1, h2));
+
+            // We want to map from the output rectangle back to the source quad,
+            // so we compute H: outputRect → sourceQuad (inverse mapping for sampling).
+            const rectPts = [[0,0],[outW,0],[outW,outH],[0,outH]];
+            const quadPts = pts.map(p => [p.x, p.y]);
+            const H = computeHomography(rectPts, quadPts);
+
+            // Read source pixels
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width  = srcImg.width;
+            srcCanvas.height = srcImg.height;
+            srcCanvas.getContext('2d').drawImage(srcImg, 0, 0);
+            const srcPixels = srcCanvas.getContext('2d').getImageData(0, 0, srcImg.width, srcImg.height);
+
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width  = outW;
+            outCanvas.height = outH;
+            const outCtx  = outCanvas.getContext('2d');
+            const outData = outCtx.createImageData(outW, outH);
+            const out = outData.data;
+            const src = srcPixels.data;
+            const SW = srcImg.width, SH = srcImg.height;
+
+            for (let y = 0; y < outH; y++) {
+                for (let x = 0; x < outW; x++) {
+                    // Map output pixel (x,y) → source pixel (sx,sy) via H
+                    const denom = H[6]*x + H[7]*y + H[8];
+                    const sx = (H[0]*x + H[1]*y + H[2]) / denom;
+                    const sy = (H[3]*x + H[4]*y + H[5]) / denom;
+
+                    // Bilinear interpolation
+                    const x0 = Math.floor(sx), y0 = Math.floor(sy);
+                    const x1 = x0 + 1, y1 = y0 + 1;
+                    const tx = sx - x0, ty = sy - y0;
+
+                    const sample = (px, py) => {
+                        if (px < 0 || px >= SW || py < 0 || py >= SH) return [255,255,255,255];
+                        const i = (py * SW + px) * 4;
+                        return [src[i], src[i+1], src[i+2], src[i+3]];
+                    };
+                    const c00 = sample(x0, y0), c10 = sample(x1, y0);
+                    const c01 = sample(x0, y1), c11 = sample(x1, y1);
+                    const oi = (y * outW + x) * 4;
+                    for (let c = 0; c < 4; c++) {
+                        out[oi+c] = Math.round(
+                            c00[c]*(1-tx)*(1-ty) + c10[c]*tx*(1-ty) +
+                            c01[c]*(1-tx)*ty     + c11[c]*tx*ty
+                        );
+                    }
+                }
+            }
+            outCtx.putImageData(outData, 0, 0);
+            return outCanvas;
+        }
+
+        function applyCrop() {
+            if (!cropSourceImg || cropPoints.length < 4) return;
+            const btn = document.getElementById('btnApplyCrop');
+            btn.innerHTML = '⏳ Memproses...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                try {
+                    const result = warpPerspective(cropSourceImg, cropPoints);
+                    const dataUrl = result.toDataURL('image/jpeg', 0.95);
+                    cancelCrop();
+                    const newImg = new Image();
+                    newImg.onload = function() {
+                        pages[currentIndex].imgObject = newImg;
+                        pages[currentIndex].thumbURL  = createThumbnail(newImg);
+                        updateUI();
+                    };
+                    newImg.src = dataUrl;
+                } catch(err) {
+                    console.error(err);
+                    alert('Terjadi kesalahan saat memproses crop perspektif.');
+                } finally {
+                    btn.innerHTML = '✓ Simpan Potongan';
+                    btn.disabled = false;
+                }
+            }, 30);
+        }
+
+        // --- PDF Export Logic ---
+        function downloadPDF() {
+            if (pages.length === 0) return;
+            const { jsPDF } = window.jspdf;
+            if(!jsPDF) return alert("Library PDF tidak termuat.");
+
+            const originalBtnHtml = btnDownload.innerHTML;
+            btnDownload.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Memproses ${pages.length} Hal...`;
+            btnDownload.classList.add('opacity-75', 'cursor-wait');
+            
+            setTimeout(() => {
+                try {
+                    let pdf = null;
+                    for(let i = 0; i < pages.length; i++) {
+                        const page = pages[i];
+                        const dims = processImageOntoCanvas(page.imgObject, processCanvas, processCtx, page.filter, page.threshold);
+                        const isLandscape = dims.width > dims.height;
+
+                        if (i === 0) {
+                            pdf = new jsPDF({
+                                orientation: isLandscape ? 'landscape' : 'portrait',
+                                unit: 'mm',
+                                format: 'a4'
+                            });
+                        } else {
+                            pdf.addPage('a4', isLandscape ? 'landscape' : 'portrait');
+                        }
+
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+                        
+                        const imgRatio = dims.width / dims.height;
+                        const pdfRatio = pdfWidth / pdfHeight;
+                        
+                        let finalWidth = pdfWidth;
+                        let finalHeight = pdfHeight;
+                        
+                        if (imgRatio > pdfRatio) {
+                            finalHeight = pdfWidth / imgRatio;
+                        } else {
+                            finalWidth = pdfHeight * imgRatio;
+                        }
+                        
+                        const x = (pdfWidth - finalWidth) / 2;
+                        const y = (pdfHeight - finalHeight) / 2;
+
+                        const imgData = processCanvas.toDataURL('image/jpeg', 0.9);
+                        pdf.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight);
+                    }
+                    pdf.save('zatod_sarotod.pdf');
+                } catch (e) {
+                    console.error(e);
+                    showToast('Terjadi kesalahan saat mengekspor PDF.', 'error');
+                } finally {
+                    btnDownload.innerHTML = originalBtnHtml;
+                    btnDownload.classList.remove('opacity-75', 'cursor-wait');
+                }
+            }, 50);
+        }
+        // --- Crop error is already handled via showToast in applyCrop ---
+
+        // =========================================================
+        // --- Toast & Confirm Notification System ---
+        // =========================================================
+        const toastContainer = document.getElementById('toastContainer');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const confirmMsg     = document.getElementById('confirmMsg');
+        const confirmOkBtn   = document.getElementById('confirmOkBtn');
+        const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+
+        function showToast(message, type = 'info', duration = 3000) {
+            const icons = {
+                success: '<svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>',
+                error:   '<svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>',
+                info:    '<svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+                warn:    '<svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>',
+            };
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `${icons[type] || icons.info}<span style="flex:1">${message}</span>`;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('removing');
+                toast.addEventListener('animationend', () => toast.remove());
+            }, duration);
+        }
+
+        let _confirmCallback = null;
+        function showConfirm(message, onConfirm, okLabel = 'Hapus') {
+            confirmMsg.textContent = message;
+            confirmOkBtn.textContent = okLabel;
+            _confirmCallback = onConfirm;
+            confirmOverlay.classList.add('active');
+        }
+        confirmOkBtn.addEventListener('click', () => {
+            confirmOverlay.classList.remove('active');
+            if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
+        });
+        confirmCancelBtn.addEventListener('click', () => {
+            confirmOverlay.classList.remove('active');
+            _confirmCallback = null;
+        });
+        confirmOverlay.addEventListener('click', (e) => {
+            if (e.target === confirmOverlay) {
+                confirmOverlay.classList.remove('active');
+                _confirmCallback = null;
+            }
+        });
+    </script>
+</body>
+</html>
